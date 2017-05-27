@@ -190,6 +190,8 @@ func daemon(context *cli.Context) error {
 	}
 	for ss := range s {
 		switch ss {
+		case syscall.SIGPIPE:
+			continue
 		default:
 			logrus.Infof("stopping containerd after receiving %s", ss)
 			server.Stop()
