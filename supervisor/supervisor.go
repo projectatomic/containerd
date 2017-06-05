@@ -1,6 +1,7 @@
 package supervisor
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -288,8 +289,13 @@ func (s *Supervisor) Machine() Machine {
 
 // SendTask sends the provided event the the supervisors main event loop
 func (s *Supervisor) SendTask(evt Task) {
-	TasksCounter.Inc(1)
-	s.tasks <- evt
+	select {
+	case <-evt.Ctx().Done():
+		evt.ErrorCh() <- evt.Ctx().Err()
+		close(evt.ErrorCh())
+	case s.tasks <- evt:
+		TasksCounter.Inc(1)
+	}
 }
 
 func (s *Supervisor) exitHandler() {
@@ -297,6 +303,7 @@ func (s *Supervisor) exitHandler() {
 		e := &ExitTask{
 			Process: p,
 		}
+		e.WithContext(context.Background())
 		s.SendTask(e)
 	}
 }
@@ -306,6 +313,7 @@ func (s *Supervisor) oomHandler() {
 		e := &OOMTask{
 			ID: id,
 		}
+		e.WithContext(context.Background())
 		s.SendTask(e)
 	}
 }
@@ -359,6 +367,7 @@ func (s *Supervisor) restore() error {
 				e := &ExitTask{
 					Process: p,
 				}
+				e.WithContext(context.Background())
 				s.SendTask(e)
 			}
 		}
