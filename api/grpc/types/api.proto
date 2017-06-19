@@ -210,6 +210,8 @@ message UpdateResource {
 	repeated ThrottleDevice blkioThrottleWriteBpsDevice = 15;
 	repeated ThrottleDevice blkioThrottleReadIopsDevice = 16;
 	repeated ThrottleDevice blkioThrottleWriteIopsDevice = 17;
+	uint64 cpuRealtimePeriod = 18;
+	uint64 cpuRealtimeRuntime = 19;
 }
 
 message BlockIODevice {
