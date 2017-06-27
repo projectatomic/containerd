@@ -158,7 +158,7 @@ func main() {
 
 func daemon(context *cli.Context) error {
 	s := make(chan os.Signal, 2048)
-	signal.Notify(s, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(s, syscall.SIGTERM, syscall.SIGINT, syscall.SIGPIPE)
 	sv, err := supervisor.New(
 		context.String("state-dir"),
 		context.String("runtime"),
