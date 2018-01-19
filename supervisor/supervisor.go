@@ -21,6 +21,9 @@ const (
 // New returns an initialized Process supervisor.
 func New(stateDir string, runtimeName, shimName string, runtimeArgs []string, timeout time.Duration, retainCount int) (*Supervisor, error) {
 	startTasks := make(chan *startTask, 10)
+	if err := os.MkdirAll(stateDir, 0755); err != nil {
+		return nil, err
+	}
 	machine, err := CollectMachineInformation()
 	if err != nil {
 		return nil, err
@@ -331,9 +334,7 @@ func (s *Supervisor) restore() error {
 		id := d.Name()
 		container, err := runtime.Load(s.stateDir, id, s.shim, s.timeout)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{"error": err, "id": id}).Warnf("containerd: failed to load container,removing state directory.")
-			os.RemoveAll(filepath.Join(s.stateDir, id))
-			continue
+			return err
 		}
 		processes, err := container.Processes()
 		if err != nil {
