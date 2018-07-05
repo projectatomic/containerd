@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	handledSignals = []os.Signal{unix.SIGTERM, unix.SIGINT, unix.SIGUSR1, unix.SIGCHLD}
+	handledSignals = []os.Signal{unix.SIGTERM, unix.SIGINT, unix.SIGUSR1, unix.SIGCHLD, unix.SIGPIPE}
 )
 
 func platformInit(context *cli.Context) error {
@@ -46,6 +46,8 @@ func handleSignals(signals chan os.Signal, server *grpc.Server) error {
 	for s := range signals {
 		log.G(global).WithField("signal", s).Debug("received signal")
 		switch s {
+		case unix.SIGPIPE:
+			continue
 		case unix.SIGCHLD:
 			if err := reaper.Reap(); err != nil {
 				log.G(global).WithError(err).Error("reap containerd processes")
