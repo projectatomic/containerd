@@ -3,6 +3,9 @@
 package archutils
 
 // #include <sys/epoll.h>
+// #include <errno.h>
+// #include <stdio.h>
+// #include <string.h>
 /*
 int EpollCreate1(int flag) {
 	return epoll_create1(flag);
@@ -24,7 +27,12 @@ struct event_t {
 struct epoll_event events[128];
 int run_epoll_wait(int fd, struct event_t *event) {
 	int n, i;
-	n = epoll_wait(fd, events, 128, -1);
+	do{
+		n = epoll_wait(fd, events, 128, -1);
+	}while (n < 0 && errno == EINTR);
+	if (n < 0) {
+		printf("epoll_wait failed with errno == %s\n", strerror(errno));
+	}
 	for (i = 0; i < n; i++) {
 		event[i].events = events[i].events;
 		event[i].fd = events[i].data.fd;
