@@ -290,7 +290,7 @@ func (p *process) handleSigkilledShim(rst uint32, rerr error) (uint32, error) {
 			for {
 				select {
 				case <-timeout:
-					return UnknownStatus, fmt.Errorf("containerd: giving up on %s:%s (pid %v)", p.containerd.id, p.id, p.pid)
+					return UnknownStatus, fmt.Errorf("containerd: giving up on %s:%s (pid %v)", p.container.id, p.id, p.pid)
 				case <-tick:
 					e := unix.Kill(p.pid, 0)
 					if e == syscall.ESRCH {
