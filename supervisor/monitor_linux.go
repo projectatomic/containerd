@@ -114,8 +114,15 @@ func (m *Monitor) processEvent(fd int, event uint32) {
 		t.Flush()
 		if t.Removed() {
 			delete(m.receivers, fd)
-			// epoll will remove the fd from its set after it has been closed
-			t.Close()
+			if err := syscall.EpollCtl(m.epollFd, syscall.EPOLL_CTL_DEL, fd, &syscall.EpollEvent{
+				Events: syscall.EPOLLHUP,
+				Fd:     int32(fd),
+			}); err != nil {
+				logrus.WithField("error", err).Error("containerd: epoll remove fd for OOM")
+			}
+			if err := t.Close(); err != nil {
+				logrus.WithField("error", err).Error("containerd: close OOM")
+			}
 			EpollFdCounter.Dec(1)
 		} else {
 			// defer until lock is released
