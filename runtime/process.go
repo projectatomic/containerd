@@ -126,8 +126,7 @@ func loadProcess(root, id string, c *container, s *ProcessState) (*process, erro
 			Stdout: s.Stdout,
 			Stderr: s.Stderr,
 		},
-		state:     Stopped,
-		cmdDoneCh: make(chan struct{}),
+		state: Stopped,
 	}
 
 	startTime, err := ioutil.ReadFile(filepath.Join(p.root, StartTimeFile))
