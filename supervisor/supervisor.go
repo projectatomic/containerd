@@ -3,6 +3,7 @@ package supervisor
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -291,6 +292,14 @@ func (s *Supervisor) Machine() Machine {
 
 // SendTask sends the provided event the the supervisors main event loop
 func (s *Supervisor) SendTask(evt Task) {
+	ctxVal := fmt.Sprintf("%v", evt.Ctx())
+	if evt.Ctx().Done() == nil && ctxVal == "context.Background" {
+		logrus.Debug("Background task found without Done Channel, close.")
+		evt.ErrorCh() <- evt.Ctx().Err()
+		close(evt.ErrorCh())
+		return
+	}
+
 	select {
 	case <-evt.Ctx().Done():
 		evt.ErrorCh() <- evt.Ctx().Err()
