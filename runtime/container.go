@@ -146,15 +146,15 @@ func New(opts ContainerOpts) (Container, error) {
 }
 
 // Load return a new container from the matchin state file on disk.
-func Load(root, id, shimName string, timeout time.Duration) (Container, error) {
+func Load(root, id, shimName string, timeout time.Duration) (Container, error, string) {
 	var s state
 	f, err := os.Open(filepath.Join(root, id, StateFile))
 	if err != nil {
-		return nil, err
+		return nil, err, "init"
 	}
 	defer f.Close()
 	if err := json.NewDecoder(f).Decode(&s); err != nil {
-		return nil, err
+		return nil, err, "init"
 	}
 	c := &container{
 		root:        root,
@@ -175,7 +175,7 @@ func Load(root, id, shimName string, timeout time.Duration) (Container, error) {
 
 	dirs, err := ioutil.ReadDir(filepath.Join(root, id))
 	if err != nil {
-		return nil, err
+		return nil, err, "init"
 	}
 	for _, d := range dirs {
 		if !d.IsDir() {
@@ -184,7 +184,7 @@ func Load(root, id, shimName string, timeout time.Duration) (Container, error) {
 		pid := d.Name()
 		s, err := readProcessState(filepath.Join(root, id, pid))
 		if err != nil {
-			return nil, err
+			return nil, err, pid
 		}
 		p, err := loadProcess(filepath.Join(root, id, pid), pid, c, s)
 		if err != nil {
@@ -193,7 +193,7 @@ func Load(root, id, shimName string, timeout time.Duration) (Container, error) {
 		}
 		c.processes[pid] = p
 	}
-	return c, nil
+	return c, nil, ""
 }
 
 func readProcessState(dir string) (*ProcessState, error) {
