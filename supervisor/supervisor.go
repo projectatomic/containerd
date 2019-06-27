@@ -334,10 +334,15 @@ func (s *Supervisor) restore() error {
 			continue
 		}
 		id := d.Name()
-		container, err := runtime.Load(s.stateDir, id, s.shim, s.timeout)
+		container, err, pid := runtime.Load(s.stateDir, id, s.shim, s.timeout)
 		if err != nil {
-			logrus.WithFields(logrus.Fields{"error": err, "id": id}).Warnf("containerd: failed to load container,removing state directory.")
-			os.RemoveAll(filepath.Join(s.stateDir, id))
+			if (pid == "init") {
+				logrus.WithFields(logrus.Fields{"error": err, "id": id}).Warnf("containerd: failed to load container,removing state directory.")
+				os.RemoveAll(filepath.Join(s.stateDir, id))
+			} else {
+				logrus.WithFields(logrus.Fields{"error": err, "pid": pid}).Warnf("containerd: failed to load exec process,removing state directory.")
+				os.RemoveAll(filepath.Join(s.stateDir, id, pid))
+			}
 			continue
 		}
 		processes, err := container.Processes()
