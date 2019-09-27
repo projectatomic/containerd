@@ -18,6 +18,16 @@ const (
 	defaultBufferSize = 2048 // size of queue in eventloop
 )
 
+// Pointers to all ExitTask that are created by the restore() function are stored in this slice.
+var restoreExitTasks []*ExitTask
+
+func max(x, y int) int {
+	if x < y {
+		return y
+	}
+	return x
+}
+
 // New returns an initialized Process supervisor.
 func New(stateDir string, runtimeName, shimName string, runtimeArgs []string, timeout time.Duration, retainCount int) (*Supervisor, error) {
 	startTasks := make(chan *startTask, 10)
@@ -207,7 +217,9 @@ type eventV1 struct {
 // Events returns an event channel that external consumers can use to receive updates
 // on container events
 func (s *Supervisor) Events(from time.Time, storedOnly bool, id string) chan Event {
-	c := make(chan Event, defaultBufferSize)
+	var c chan Event
+
+	c = make(chan Event, defaultBufferSize)
 	if storedOnly {
 		defer s.Unsubscribe(c)
 	}
@@ -216,6 +228,9 @@ func (s *Supervisor) Events(from time.Time, storedOnly bool, id string) chan Eve
 	if !from.IsZero() {
 		// replay old event
 		s.eventLock.Lock()
+		close(c)
+		// Allocate a channel that has enough space for the entire event log.
+		c = make(chan Event, max(defaultBufferSize, len(s.eventLog)))
 		past := s.eventLog[:]
 		s.eventLock.Unlock()
 		for _, e := range past {
@@ -276,6 +291,21 @@ func (s *Supervisor) Start() error {
 		"cpus":        s.machine.Cpus,
 	}).Debug("containerd: supervisor running")
 	go func() {
+		if (len(restoreExitTasks) > 0) {
+			logrus.Infof("containerd: found %d exited processes after restart", len(restoreExitTasks))
+			//
+			// If the restore() function stored any ExitTask in the dedicated slice,
+			// then handle those tasks first. The purpose of the one second delay is
+			// to give dockerd a chance to establish its event stream connection to
+			// containerd. If the connection is established before the ExitTask are
+			// being handled, then dockerd can receive exit notifications directly
+			// (rather than having to replay the notifications from the event log).
+			//
+			time.Sleep(time.Second)
+			for _, e := range restoreExitTasks {
+				s.handleTask(e)
+			}
+		}
 		for i := range s.tasks {
 			s.handleTask(i)
 		}
@@ -385,7 +415,8 @@ func (s *Supervisor) restore() error {
 					Process: p,
 				}
 				e.WithContext(context.Background())
-				s.SendTask(e)
+				// Store pointer to ExitTask in dedicated slice.
+				restoreExitTasks = append(restoreExitTasks, e)
 			}
 		}
 	}
