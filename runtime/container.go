@@ -146,15 +146,15 @@ func New(opts ContainerOpts) (Container, error) {
 }
 
 // Load return a new container from the matchin state file on disk.
-func Load(root, id, shimName string, timeout time.Duration) (Container, error, string) {
+func Load(root, id, shimName string, timeout time.Duration) (Container, error) {
 	var s state
 	f, err := os.Open(filepath.Join(root, id, StateFile))
 	if err != nil {
-		return nil, err, "init"
+		return nil, err
 	}
 	defer f.Close()
 	if err := json.NewDecoder(f).Decode(&s); err != nil {
-		return nil, err, "init"
+		return nil, err
 	}
 	c := &container{
 		root:        root,
@@ -175,25 +175,28 @@ func Load(root, id, shimName string, timeout time.Duration) (Container, error, s
 
 	dirs, err := ioutil.ReadDir(filepath.Join(root, id))
 	if err != nil {
-		return nil, err, "init"
+		return nil, err
 	}
 	for _, d := range dirs {
 		if !d.IsDir() {
 			continue
 		}
 		pid := d.Name()
-		s, err := readProcessState(filepath.Join(root, id, pid))
+		processStateDir := filepath.Join(root, id, pid)
+		s, err := readProcessState(processStateDir)
 		if err != nil {
-			return nil, err, pid
+			logrus.WithFields(logrus.Fields{"error": err, "pid": pid}).Warnf("containerd: failed to load exec process,removing state directory.")
+			os.RemoveAll(processStateDir)
+			continue
 		}
-		p, err := loadProcess(filepath.Join(root, id, pid), pid, c, s)
+		p, err := loadProcess(processStateDir, pid, c, s)
 		if err != nil {
 			logrus.WithField("id", id).WithField("pid", pid).Debugf("containerd: error loading process %s", err)
 			continue
 		}
 		c.processes[pid] = p
 	}
-	return c, nil, ""
+	return c, nil
 }
 
 func readProcessState(dir string) (*ProcessState, error) {
