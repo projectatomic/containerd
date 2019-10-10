@@ -182,11 +182,14 @@ func Load(root, id, shimName string, timeout time.Duration) (Container, error) {
 			continue
 		}
 		pid := d.Name()
-		s, err := readProcessState(filepath.Join(root, id, pid))
+		processStateDir := filepath.Join(root, id, pid)
+		s, err := readProcessState(processStateDir)
 		if err != nil {
-			return nil, err
+			logrus.WithFields(logrus.Fields{"error": err, "pid": pid}).Warnf("containerd: failed to load exec process,removing state directory.")
+			os.RemoveAll(processStateDir)
+			continue
 		}
-		p, err := loadProcess(filepath.Join(root, id, pid), pid, c, s)
+		p, err := loadProcess(processStateDir, pid, c, s)
 		if err != nil {
 			logrus.WithField("id", id).WithField("pid", pid).Debugf("containerd: error loading process %s", err)
 			continue
